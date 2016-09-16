@@ -6,10 +6,12 @@
 # Example use case:
 # https://github.com/andygrunwald/FOM-LaTeX-Template
 
-FROM debian:jessie
+FROM debian:stretch
 MAINTAINER Christian Koep <christian.koep@fom-net.de>
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update
+RUN apt-get install -y make
+RUN apt-get install -y \
     texlive-full \
     biber \
     --no-install-recommends \
