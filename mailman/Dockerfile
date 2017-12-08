@@ -1,5 +1,5 @@
-FROM debian:jessie
-MAINTAINER Jessica Frazelle <jess@docker.com>
+FROM debian:buster
+LABEL maintainer "Jessie Frazelle <jess@linux.com>"
 
 # run
 # docker run -d -p 1234:80 -p 25:25 jess/mailman

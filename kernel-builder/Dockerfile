@@ -1,9 +1,14 @@
-FROM debian:jessie
-MAINTAINER Jessica Frazelle <jess@docker.com>
+FROM debian:sid
+LABEL maintainer "Jessie Frazelle <jess@linux.com>"
 
-RUN apt-get update && apt-get install -y \
+RUN dpkg --add-architecture arm64 \
+	&& dpkg --add-architecture ppc64el \
+	&& apt-get update && apt-get install -y \
 	ca-certificates \
 	curl \
+	gnupg \
+	crossbuild-essential-arm64 \
+	crossbuild-essential-ppc64el \
 	git \
 	kernel-package \
 	make \

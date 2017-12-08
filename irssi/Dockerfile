@@ -1,7 +1,10 @@
-FROM alpine:3.3
+FROM alpine:latest
 
 RUN apk --no-cache add \
-	ca-certificates
+	--repository https://dl-3.alpinelinux.org/alpine/latest-stable/community \
+	ca-certificates \
+	perl-datetime \
+	perl-timedate
 
 ENV HOME /home/user
 RUN adduser -u 1001 -D user \
@@ -10,16 +13,17 @@ RUN adduser -u 1001 -D user \
 
 ENV LANG C.UTF-8
 
-ENV IRSSI_VERSION 0.8.19
+ENV IRSSI_VERSION 1.0.5
+# https://otr.cypherpunks.ca/index.php#downloads
 ENV LIB_OTR_VERSION 4.1.1
-ENV IRSSI_OTR_VERSION 1.0.1
-ENV PATCH_FOR_IRSSI_OTR https://github.com/cryptodotis/irssi-otr/commit/d03ab59b6f27142c1c5e99fedc635a589b1607bb.diff
+# https://github.com/cryptodotis/irssi-otr/releases
+ENV IRSSI_OTR_VERSION 1.0.2
 
 RUN set -x \
 	&& apk add --no-cache --virtual .build-deps \
 		autoconf \
 		automake \
-		ca-certificates \
+		curl \
 		gcc \
 		glib-dev \
 		gnupg \
@@ -30,18 +34,17 @@ RUN set -x \
 		make \
 		ncurses-dev \
 		openssl-dev \
-		patch \
 		perl-dev \
 		pkgconf \
 		tar \
 		xz \
-	&& wget "https://github.com/irssi/irssi/releases/download/${IRSSI_VERSION}/irssi-${IRSSI_VERSION}.tar.xz" -O /tmp/irssi.tar.xz \
-	&& wget "https://github.com/irssi/irssi/releases/download/${IRSSI_VERSION}/irssi-${IRSSI_VERSION}.tar.xz.asc" -O /tmp/irssi.tar.xz.asc \
+	&& curl -sSL "https://github.com/irssi/irssi/releases/download/${IRSSI_VERSION}/irssi-${IRSSI_VERSION}.tar.xz" -o /tmp/irssi.tar.xz \
+	&& curl -sSL "https://github.com/irssi/irssi/releases/download/${IRSSI_VERSION}/irssi-${IRSSI_VERSION}.tar.xz.asc" -o /tmp/irssi.tar.xz.asc \
 	&& export GNUPGHOME="$(mktemp -d)" \
 # gpg: key DDBEF0E1: public key "The Irssi project <staff@irssi.org>" imported
-	&& gpg --keyserver ha.pool.sks-keyservers.net --recv-keys 7EE65E3082A5FB06AC7C368D00CCB587DDBEF0E1 \
+	&& gpg --no-tty --keyserver ha.pool.sks-keyservers.net --recv-keys 7EE65E3082A5FB06AC7C368D00CCB587DDBEF0E1 \
 	&& gpg --batch --verify /tmp/irssi.tar.xz.asc /tmp/irssi.tar.xz \
-	&& rm -r "$GNUPGHOME" /tmp/irssi.tar.xz.asc \
+	&& rm -rf "$GNUPGHOME" /tmp/irssi.tar.xz.asc \
 	&& mkdir -p /usr/src \
 	&& tar -xJf /tmp/irssi.tar.xz -C /usr/src \
 	&& rm /tmp/irssi.tar.xz \
@@ -56,13 +59,13 @@ RUN set -x \
 		&& make -j$(getconf _NPROCESSORS_ONLN) \
 		&& make install \
 	) \
-	&& wget "https://otr.cypherpunks.ca/libotr-${LIB_OTR_VERSION}.tar.gz" -O /tmp/libotr.tar.gz \
-	&& wget "https://otr.cypherpunks.ca/libotr-${LIB_OTR_VERSION}.tar.gz.asc" -O /tmp/libotr.tar.gz.asc \
+	&& curl -sSL "https://otr.cypherpunks.ca/libotr-${LIB_OTR_VERSION}.tar.gz" -o /tmp/libotr.tar.gz \
+	&& curl -sSL "https://otr.cypherpunks.ca/libotr-${LIB_OTR_VERSION}.tar.gz.asc" -o /tmp/libotr.tar.gz.asc \
 	&& export GNUPGHOME="$(mktemp -d)" \
 # gpg: key 42C2ABAD: public key "OTR Dev Team (Signing Key) <otr@cypherpunks.ca>" imported
-	&& gpg --keyserver pgp.mit.edu --recv-keys 22DF3305DF56667CE15784FCF24DE08F42C2ABAD \
+	&& curl -sSL https://otr.cypherpunks.ca/gpgkey.asc | gpg --no-tty --import \
 	&& gpg --batch --verify /tmp/libotr.tar.gz.asc /tmp/libotr.tar.gz \
-	&& rm -r "$GNUPGHOME" /tmp/libotr.tar.gz.asc \
+	&& rm -rf "$GNUPGHOME" /tmp/libotr.tar.gz.asc \
 	&& mkdir -p /usr/src/libotr \
 	&& tar -xzf /tmp/libotr.tar.gz -C /usr/src/libotr --strip-components 1 \
 	&& rm /tmp/libotr.tar.gz \
@@ -75,14 +78,12 @@ RUN set -x \
 		&& make install \
 	) \
 	&& mkdir -p /usr/src/irssi-otr \
-	&& wget "https://github.com/cryptodotis/irssi-otr/archive/v${IRSSI_OTR_VERSION}.tar.gz" -O /tmp/irssi-otr.tar.gz \
+	&& curl -sSL "https://github.com/cryptodotis/irssi-otr/archive/v${IRSSI_OTR_VERSION}.tar.gz" -o /tmp/irssi-otr.tar.gz \
 	&& mkdir -p /usr/src/irssi-otr \
 	&& tar -xf /tmp/irssi-otr.tar.gz -C /usr/src/irssi-otr --strip-components 1 \
-	&& rm /tmp/irssi-otr.tar.gz \
+	&& rm -f /tmp/irssi-otr.tar.gz \
 	&& ( \
 		cd /usr/src/irssi-otr \
-		&& wget "$PATCH_FOR_IRSSI_OTR" -O patch.diff \
-		&& patch -p1 < patch.diff \
 		&& ./bootstrap \
 		&& ./configure \
 			--prefix=/usr \

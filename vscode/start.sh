@@ -1,3 +1,5 @@
 #!/bin/bash
+set -e
+set -o pipefail
 
-su user -c /usr/src/VSCode-linux-x64/code
+su user -p -c /usr/share/code/code

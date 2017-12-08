@@ -1,12 +1,20 @@
 #!/bin/bash
 set -e
+set -o pipefail
+
+SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+REPO_URL="${REPO_URL:-r.j3ss.co}"
+JOBS=${JOBS:-2}
+
+ERRORS="$(pwd)/errors"
 
 build_and_push(){
 	base=$1
 	suite=$2
 	build_dir=$3
 
-	docker build --rm --force-rm -t r.j3ss.co/${base}:${suite} ${build_dir} || return 1
+	echo "Building ${REPO_URL}/${base}:${suite} for context ${build_dir}"
+	docker build --rm --force-rm -t ${REPO_URL}/${base}:${suite} ${build_dir} || return 1
 
 	# on successful build, push the image
 	echo "                       ---                                   "
@@ -17,7 +25,7 @@ build_and_push(){
 	# absolutely no reason
 	n=0
 	until [ $n -ge 5 ]; do
-		docker push --disable-content-trust=false r.j3ss.co/${base}:${suite} && break
+		docker push --disable-content-trust=false ${REPO_URL}/${base}:${suite} && break
 		echo "Try #$n failed... sleeping for 15 seconds"
 		n=$[$n+1]
 		sleep 15
@@ -25,50 +33,60 @@ build_and_push(){
 
 	# also push the tag latest for "stable" tags
 	if [[ "$suite" == "stable" ]]; then
-		docker tag r.j3ss.co/${base}:${suite} r.j3ss.co/${base}:latest
-		docker push --disable-content-trust=false r.j3ss.co/${base}:latest
+		docker tag ${REPO_URL}/${base}:${suite} ${REPO_URL}/${base}:latest
+		docker push --disable-content-trust=false ${REPO_URL}/${base}:latest
 	fi
+}
+
+dofile() {
+	f=$1
+	image=${f%Dockerfile}
+	base=${image%%\/*}
+	build_dir=$(dirname $f)
+	suite=${build_dir##*\/}
+
+	if [[ -z "$suite" ]] || [[ "$suite" == "$base" ]]; then
+		suite=latest
+	fi
+
+	{
+		$SCRIPT build_and_push "${base}" "${suite}" "${build_dir}"
+	} || {
+	# add to errors
+	echo "${base}:${suite}" >> $ERRORS
+}
+echo
+echo
 }
 
 main(){
 	# get the dockerfiles
 	IFS=$'\n'
-	files=( $(find . -iname '*Dockerfile' | sed 's|./||') )
+	files=( $(find . -iname '*Dockerfile' | sed 's|./||' | sort) )
 	unset IFS
 
-	ERRORS=()
 	# build all dockerfiles
-	for f in "${files[@]}"; do
-		image=${f%Dockerfile}
-		base=${image%%\/*}
-		build_dir=$(dirname $f)
-		suite=${build_dir##*\/}
+	echo "Running in parallel with ${JOBS} jobs."
+	parallel --tag --verbose --ungroup -j"${JOBS}" $SCRIPT dofile "{1}" ::: "${files[@]}"
 
-		if [[ -z "$suite" ]] || [[ "$suite" == "$base" ]]; then
-			suite=latest
-		fi
-
-		if [[ "${base}" == "sup" ]]; then
-			continue
-		fi
-
-		{
-			build_and_push "${base}" "${suite}" "${build_dir}"
-		} || {
-		# add to errors
-		ERRORS+=("${base}:${suite}")
-	}
-	echo
-	echo
-done
-
-if [ ${#ERRORS[@]} -eq 0 ]; then
-	echo "No errors, hooray!"
-else
-	echo "[ERROR] Some images did not build correctly, see below." >&2
-	echo "These images failed: ${ERRORS[@]}" >&2
-	exit 1
-fi
+	if [[ ! -f $ERRORS ]]; then
+		echo "No errors, hooray!"
+	else
+		echo "[ERROR] Some images did not build correctly, see below." >&2
+		echo "These images failed: $(cat $ERRORS)" >&2
+		exit 1
+	fi
 }
 
-main $@
+run(){
+	args=$@
+	f=$1
+
+	if [[ "$f" == "" ]]; then
+		main $args
+	else
+		$args
+	fi
+}
+
+run $@
