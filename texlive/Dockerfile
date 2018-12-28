@@ -20,3 +20,4 @@ RUN tlmgr init-usertree
 RUN tlmgr update --self
 RUN tlmgr update --all
 RUN mktexlsr
+RUN luaotfload-tool --update
