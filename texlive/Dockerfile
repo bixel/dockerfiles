@@ -11,8 +11,8 @@ LABEL maintainer "Christian Koep <christiankoep@gmail.com>"
 
 RUN apt-get update
 RUN apt-get install -y \
-    make
+    make \
     texlive-full \
     biber \
-    --no-install-recommends
+    --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
