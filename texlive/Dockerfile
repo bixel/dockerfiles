@@ -16,3 +16,7 @@ RUN apt-get install -y \
     biber \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
+RUN tlmgr init-usertree
+RUN tlmgr update --self
+RUN tlmgr update --all
+RUN mktexlsr
