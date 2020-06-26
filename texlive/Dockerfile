@@ -14,6 +14,7 @@ RUN apt-get install -y \
     make \
     texlive-full \
     biber \
+    git \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 RUN tlmgr init-usertree
